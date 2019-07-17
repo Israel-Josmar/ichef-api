@@ -1,0 +1,31 @@
+{
+  "name": "ichef-api",
+  "private": "true",
+  "license": "MIT",
+  "main": "index.js",
+  "scripts": {
+    "start": "sls offline start",
+    "check:code:style": "prettier --write \"src/**/*.js\""
+  },
+  "dependencies": {
+    "@babel/core": "^7.5.5",
+    "@babel/preset-env": "^7.5.5",
+    "apollo-server-lambda": "^2.7.0",
+    "babel-loader": "^8.0.6",
+    "eslint": "^6.1.0",
+    "graphql": "^14.4.2",
+    "merge-graphql-schemas": "^1.6.1",
+    "prettier": "^1.18.2",
+    "ramda": "^0.26.1",
+    "serverless": "^1.48.2",
+    "serverless-webpack": "^5.3.1",
+    "webpack": "^4.36.1",
+    "webpack-node-externals": "^1.7.2"
+  },
+  "devDependencies": {
+    "husky": "^3.0.1",
+    "lint-staged": "^9.2.0",
+    "pretty-quick": "^1.11.1",
+    "serverless-offline": "^5.8.0"
+  }
+}

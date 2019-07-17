@@ -1,0 +1,35 @@
+service:
+  name: ichef-api
+
+provider:
+  name: aws
+  runtime: nodejs10.x
+
+plugins:
+  - serverless-webpack
+  - serverless-offline
+
+custom:
+  serverless-offline:
+    port: 4000
+  webpack:
+    webpackConfig: ./config/webpack/webpack.config.js
+    includeModules: true
+    packager: npm
+
+functions:
+  graphql:
+    handler: src/lambda/graphql.handler
+    memorySize: 128
+    timeout: 5
+    events:
+      - http:
+          path: graphql
+          method: get
+          # cors: true
+      - http:
+          path: graphql
+          method: post
+          authorizer: aws_iam
+          # cors:
+          # origin: 'http://localhost:3000'
