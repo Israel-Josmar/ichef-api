@@ -4,6 +4,11 @@ module.exports = {
     node: true,
   },
   extends: 'eslint:recommended',
+  plugins: ['jest'],
+  env: {
+    node: true,
+    'jest/globals': true,
+  },
   globals: {
     Atomics: 'readonly',
     SharedArrayBuffer: 'readonly',
