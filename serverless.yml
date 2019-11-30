@@ -3,7 +3,7 @@ service:
 
 provider:
   name: aws
-  runtime: nodejs10.x
+  runtime: nodejs12.x
 
 plugins:
   - serverless-webpack
