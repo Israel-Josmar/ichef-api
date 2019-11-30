@@ -12,10 +12,10 @@
     "@babel/preset-env": "^7.7.4",
     "apollo-server-lambda": "^2.9.12",
     "babel-loader": "^8.0.6",
-    "eslint": "^6.4.0",
+    "eslint": "^6.7.2",
     "graphql": "^14.5.8",
     "merge-graphql-schemas": "^1.7.3",
-    "prettier": "^1.18.2",
+    "prettier": "^1.19.1",
     "ramda": "^0.26.1",
     "serverless": "^1.58.0",
     "serverless-webpack": "^5.3.1",
@@ -23,9 +23,9 @@
     "webpack-node-externals": "^1.7.2"
   },
   "devDependencies": {
-    "husky": "^3.0.1",
-    "lint-staged": "^9.2.0",
-    "pretty-quick": "^1.11.1",
+    "husky": "^3.1.0",
+    "lint-staged": "^9.5.0",
+    "pretty-quick": "^2.0.1",
     "serverless-offline": "^5.12.1"
   }
 }
