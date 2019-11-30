@@ -1,6 +1,4 @@
 exports.seed = async knex => {
-  await knex('dish').del()
-
   await knex('dish').insert([
     {
       id: 'be4541d9-e025-4cfe-b924-22db034e02b0',
