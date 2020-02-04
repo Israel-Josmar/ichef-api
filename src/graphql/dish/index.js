@@ -1,9 +1,43 @@
-import uuid from 'uuid'
 import { gql } from 'apollo-server-lambda'
+import { Dish } from '../../data/model'
+import { createCursor, parseCursor } from '../../utils/cursor'
 
 const typeDefs = gql`
   type Query {
-    dishes: [Dish!]!
+    dishes(after: String, first: Int!, orderBy: DishOrder): DishConnection
+  }
+
+  enum DishOrderField {
+    NAME
+    CREATED_AT
+  }
+
+  enum OrderDirection {
+    ASC
+    DESC
+  }
+
+  input DishOrder {
+    field: DishOrderField!
+    direction: OrderDirection!
+  }
+
+  type PageInfo {
+    # hasPreviousPage: String!
+    hasNextPage: String!
+    startCursor: String!
+    endCursor: String!
+  }
+
+  type DishConnection {
+    edges: [DishEdge!]!
+    totalCount: Int!
+    pageInfo: PageInfo!
+  }
+
+  type DishEdge {
+    cursor: String!
+    node: Dish!
   }
 
   type Dish {
@@ -15,50 +49,103 @@ const typeDefs = gql`
   }
 `
 
-const mockDishes = [
-  {
-    id: uuid.v4(),
-    name: 'Ribeye 380g Super Premium',
-    category: 'Carnes',
-    imageUrl:
-      'https://abrilexame.files.wordpress.com/2016/09/size_960_16_9_ribeye_kobe_beef.jpg?quality=70&strip=info&w=920',
-    description:
-      'O prato tem como acompanhamento purê de batata com queijo provola. O corte vem do gado Kobe, uma raça japonesa. O Ribeeye tem classificação Super Premium devido à sua marmorização especial. A marmorização indica a quantidade de gordura intramuscular na carne: quanto mais gordura, mais macio e saboroso o bife fica.',
-  },
-  {
-    id: uuid.v4(),
-    name: 'Raça Tropical Kobe Beef- Baby beef com batatas soufflées',
-    category: 'Carnes',
-    imageUrl:
-      'https://abrilexame.files.wordpress.com/2016/09/size_960_16_9_a_figueira_rubaiyat_-_baby_beef.jpg?quality=70&strip=info&w=920',
-    description:
-      'O Tropical Kobe Beef é uma carne suculenta, macia e com sabor único, resultado de um cruzamento do gado raça Brangus com Wagyu, essa última uma raça japonesa. O gado é criado na Fazenda Rubaiyat, no Mato Grosso.',
-  },
-  {
-    id: uuid.v4(),
-    name:
-      'Lascas de Kobe Beef marinadas em xerez seco com queijo D.O. manchego extra seco, pimenta malagueta e pistaches',
-    category: 'Espanhol',
-    imageUrl:
-      'https://abrilexame.files.wordpress.com/2016/09/size_960_16_9_arola_vintetres.jpg?quality=70&strip=info&w=920',
-    description:
-      'O prato espanhol traz cortes do gado especial Kobe, raça japonesa. As lascas marinadas ganham um sabor peculiar. A pimenta malagueta é apresentada em cubos de gelatina e o pistache da crocância ao prato. Por fim, o queijo manchego, original da Espanha, complementa toda a diversidade de sabores do prato. O restaurante fica no 23º andar do Hotel Tivoli.',
-  },
-  {
-    id: uuid.v4(),
-    name: 'Abóbora assada com bobó de camarão e catupiry',
-    category: 'Frutos do mar',
-    imageUrl:
-      'https://img.itdg.com.br/tdg/images/recipes/000/174/217/175183/175183_original.jpg?mode=crop&width=710&height=400',
-    description:
-      'A descrição do prato parece simples: Bobó de Camarão na abóbora moranga com arroz branco, mas o chef faz toda a diferença: o estrelado Alex Atala. O prato mais caro da casa é inspirado nas receitas da família brasileira, mas utiliza um padrão internacional e técnicas aprimoradas de culinária.',
-  },
-]
+const defaultOrderBy = { field: 'CREATED_AT', direction: 'DESC' }
+
+const orderByFieldToColumn = {
+  CREATED_AT: 'createdAt',
+  NAME: 'name',
+}
 
 const resolvers = {
   Query: {
-    dishes: () => {
-      return mockDishes
+    dishes: async (_, args) => {
+      const { after, first, category, orderBy: _orderBy = defaultOrderBy } = args
+
+      const orderBy = {
+        ..._orderBy,
+        field: orderByFieldToColumn[_orderBy.field],
+      }
+
+      const queryset = Dish()
+        .pluck('id')
+        .limit(first + 1)
+        .orderBy([
+          { column: orderBy.field, order: orderBy.direction },
+          { column: '_serial', order: 'ASC' },
+        ])
+
+      if (after) {
+        const operator = { ASC: '>', DESC: '<' }
+        const [field, serial] = parseCursor(after)
+
+        queryset.where(orderBy.field, operator[orderBy.direction], field)
+
+        queryset.orWhere(build => {
+          build.andWhere(orderBy.field, field)
+          build.andWhere('_serial', '>', serial)
+        })
+      }
+
+      if (category) {
+        queryset.andWhere({ category })
+      }
+
+      const disheIds = await queryset
+
+      // FIXME: use dataloader instead
+      const dishes = await Dish()
+        .whereIn('id', disheIds)
+        .orderByRaw(`array_position(array[${disheIds.map(() => '?')}], id)`, disheIds)
+
+      return {
+        args: { after, first, category, orderBy },
+        data: dishes,
+      }
+    },
+  },
+  DishConnection: {
+    totalCount: async parent => {
+      const {
+        args: { category },
+      } = parent
+
+      const queryset = Dish()
+        .first()
+        .count()
+
+      if (category) {
+        queryset.andWhere({ category })
+      }
+
+      const { count: totalCount } = await queryset
+
+      return totalCount
+    },
+    pageInfo: async parent => {
+      const {
+        data,
+        args: { first, orderBy },
+      } = parent
+
+      const firstNode = data[0]
+      const lastNode = data[first - 1] || data[data.length - 1]
+
+      return {
+        hasNextPage: data.length > first,
+        startCursor: createCursor(firstNode[orderBy.field], firstNode._serial),
+        endCursor: createCursor(lastNode[orderBy.field], lastNode._serial),
+      }
+    },
+    edges: async parent => {
+      const {
+        data,
+        args: { first, orderBy },
+      } = parent
+
+      return data.slice(0, first).map(node => ({
+        cursor: createCursor(node[orderBy.field], node._serial),
+        node,
+      }))
     },
   },
 }
